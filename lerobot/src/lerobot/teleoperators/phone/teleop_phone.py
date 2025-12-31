@@ -76,6 +76,7 @@ class IOSPhone(BasePhone, Teleoperator):
         super().__init__(config)
         self.config = config
         self._group = None
+        self._b3_pressed_prev = False  # Track previous B3 state for toggle detection
 
     @property
     def is_connected(self) -> bool:
@@ -100,7 +101,7 @@ class IOSPhone(BasePhone, Teleoperator):
         print(
             "Hold the phone so that: top edge points forward in same direction as the robot (robot +x) and screen points up (robot +z)"
         )
-        print("Press and hold B1 in the HEBI Mobile I/O app to capture this pose...\n")
+        print("Press and hold B3 in the HEBI Mobile I/O app to capture this pose...\n")
         position, rotation = self._wait_for_capture_trigger()
         self._calib_pos = position.copy()
         self._calib_rot_inv = rotation.inv()
@@ -122,15 +123,16 @@ class IOSPhone(BasePhone, Teleoperator):
         while True:
             has_pose, position, rotation, fb_pose = self._read_current_pose()
             if not has_pose:
+                print("No pose data")
                 time.sleep(0.01)
                 continue
-
+            
             io = getattr(fb_pose, "io", None)
             button_b = getattr(io, "b", None) if io is not None else None
-            button_b1_pressed = False
+            button_b3_pressed = False
             if button_b is not None:
-                button_b1_pressed = bool(button_b.get_int(1))
-            if button_b1_pressed:
+                button_b3_pressed = bool(button_b.get_int(3))
+            if button_b3_pressed:
                 return position, rotation
 
             time.sleep(0.01)
@@ -185,17 +187,20 @@ class IOSPhone(BasePhone, Teleoperator):
                     elif hasattr(bank_b, "has_bool") and bank_b.has_bool(ch):
                         raw_inputs[f"b{ch}"] = int(bank_b.get_bool(ch))
 
-        enable = bool(raw_inputs.get("b1", 0))
-
-        # Rising edge then re-capture calibration immediately from current raw pose
-        if enable and not self._enabled:
-            self._reapply_position_calibration(raw_position)
+        b3_pressed = bool(raw_inputs.get("b3", 0))
+        
+        # Toggle logic: detect rising edge (button pressed and was not pressed before)
+        if b3_pressed and not self._b3_pressed_prev:
+            self._enabled = not self._enabled  # Toggle the enabled state
+            if self._enabled:
+                # When enabling, re-capture calibration from current pose
+                self._reapply_position_calibration(raw_position)
+        
+        self._b3_pressed_prev = b3_pressed
 
         # Apply calibration
         pos_cal = self._calib_rot_inv.apply(raw_position - self._calib_pos)
         rot_cal = self._calib_rot_inv * raw_rotation
-
-        self._enabled = enable
 
         return {
             "phone.pos": pos_cal,

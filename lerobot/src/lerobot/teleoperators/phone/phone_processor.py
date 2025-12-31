@@ -68,7 +68,7 @@ class MapPhoneActionToRobotAction(RobotActionProcessorStep):
 
         # Map certain inputs to certain actions
         if self.platform == PhoneOS.IOS:
-            gripper_vel = float(inputs.get("a3", 0.0))
+            gripper_vel = float(inputs.get("a6", 0.0))
         else:
             a = float(inputs.get("reservedButtonA", 0.0))
             b = float(inputs.get("reservedButtonB", 0.0))
@@ -78,12 +78,14 @@ class MapPhoneActionToRobotAction(RobotActionProcessorStep):
 
         # For some actions we need to invert the axis
         action["enabled"] = enabled
-        action["target_x"] = -pos[1] if enabled else 0.0
-        action["target_y"] = pos[0] if enabled else 0.0
+        action["target_x"] = pos[1] if enabled else 0.0
+        action["target_y"] = -pos[0] if enabled else 0.0
         action["target_z"] = pos[2] if enabled else 0.0
-        action["target_wx"] = rotvec[1] if enabled else 0.0
-        action["target_wy"] = rotvec[0] if enabled else 0.0
-        action["target_wz"] = -rotvec[2] if enabled else 0.0
+
+        action["target_wx"] = -rotvec[2] if enabled else 0.0 
+        action["target_wy"] = -rotvec[0] if enabled else 0.0
+        action["target_wz"] = rotvec[1] if enabled else 0.0
+
         action["gripper_vel"] = gripper_vel  # Still send gripper action when disabled
         return action
 

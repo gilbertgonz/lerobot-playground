@@ -246,8 +246,18 @@ class HandTrackingTeleop(Teleoperator):
         }
         return action_dict
 
+    def send_feedback(self, feedback: dict[str, Any]) -> None:
+        """
+        Send feedback to the teleoperator.
+        Hand tracking doesn't support feedback currently.
+        """
+        pass
+
     def disconnect(self) -> None:
         """Disconnect from the hand tracking system."""
-        self.hand_tracker.shutdown()
-        self._is_connected = False
-        print("Hand tracking teleoperator disconnected.")
+        try:
+            self.hand_tracker.shutdown()
+            self._is_connected = False
+            print("Hand tracking teleoperator disconnected.")
+        except Exception as e:
+            print(f"Error during disconnect: {e}")
