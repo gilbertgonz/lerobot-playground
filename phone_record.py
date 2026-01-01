@@ -142,8 +142,12 @@ def main():
     )
 
     # 2. DATASET INITIALIZATION
-    # (Note: We use explicit motor names here to match the robot)
-    if not (local_root / repo_id / "metadata.json").exists():
+    dataset_dir = local_root / repo_id
+    
+    if dataset_dir.exists():
+        print(f"Loading existing dataset from {repo_id}...")
+        dataset = LeRobotDataset(repo_id, root=local_root)
+    else:
         print(f"Creating new dataset at {repo_id}...")
         dataset = LeRobotDataset.create(
             repo_id=repo_id,
@@ -157,9 +161,6 @@ def main():
                 "action": {"dtype": "float32", "shape": (6,), "names": motor_names},
             }
         )
-    else:
-        print(f"Loading existing dataset from {repo_id}...")
-        dataset = LeRobotDataset(repo_id, root=local_root)
 
     # 5. CONNECT REMAINING HARDWARE
     print("Connecting teleop and cameras...")
