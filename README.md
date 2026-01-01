@@ -1,11 +1,16 @@
 # lerobot-playground
 Adhoc playground for RL prototyping on the HuggingFace LeRobot stack
 
-## how to teleop via phone
+## how to record data via phone
 1. open app in phone
-2. run `python3 phone_teleop.py`
-3. follow terminal instructions
-4. How to record episode for training: PENDING
+2. run `python3 phone_record.py`
+3. follow terminal instructions (space bar for recording an episode)
+4. data stored in ./output
+
+## how to view recorded episodes
+```
+lerobot-dataset-viz --repo-id gilberto/so101_training_data --root outputs/datasets --episode-index 1
+```
 
 ## how to teleop via handtracking
 *NOT COMPLETE*
