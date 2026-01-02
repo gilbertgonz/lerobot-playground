@@ -1,15 +1,15 @@
 {
     "codebase_version": "v3.0",
     "robot_type": "so101",
-    "total_episodes": 2,
-    "total_frames": 903,
+    "total_episodes": 22,
+    "total_frames": 7799,
     "total_tasks": 1,
     "chunks_size": 1000,
     "data_files_size_in_mb": 100,
     "video_files_size_in_mb": 200,
     "fps": 30,
     "splits": {
-        "train": "0:2"
+        "train": "0:22"
     },
     "data_path": "data/chunk-{chunk_index:03d}/file-{file_index:03d}.parquet",
     "video_path": "videos/{video_key}/chunk-{chunk_index:03d}/file-{file_index:03d}.mp4",
@@ -66,12 +66,12 @@
                 6
             ],
             "names": [
-                "shoulder_pan",
-                "shoulder_lift",
-                "elbow_flex",
-                "wrist_flex",
-                "wrist_roll",
-                "gripper"
+                "shoulder_pan.pos",
+                "shoulder_lift.pos",
+                "elbow_flex.pos",
+                "wrist_flex.pos",
+                "wrist_roll.pos",
+                "gripper.pos"
             ]
         },
         "action": {
@@ -80,12 +80,12 @@
                 6
             ],
             "names": [
-                "shoulder_pan",
-                "shoulder_lift",
-                "elbow_flex",
-                "wrist_flex",
-                "wrist_roll",
-                "gripper"
+                "shoulder_pan.pos",
+                "shoulder_lift.pos",
+                "elbow_flex.pos",
+                "wrist_flex.pos",
+                "wrist_roll.pos",
+                "gripper.pos"
             ]
         },
         "timestamp": {

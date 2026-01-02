@@ -44,42 +44,8 @@ HOME_JOINTS = {
     "gripper.pos": 0.0
 }
 
-def move_to_home(robot, target_joints, duration_sec=3.0):
-    """
-    Smoothly moves the robot from current position to target_joints 
-    over 'duration_sec' seconds. Blocks teleop while moving.
-    """
-    print(f"\n[Reset] Moving to Home Position over {duration_sec}s...")
-    
-    # Get current state
-    start_obs = robot.get_observation()
-    
-    # Pre-calculate steps
-    steps = int(duration_sec * FPS)
-    
-    for i in range(steps):
-        t0 = time.perf_counter()
-        
-        # Calculate interpolation factor (0.0 to 1.0)
-        alpha = (i + 1) / steps
-        
-        # Interpolate each joint
-        action = {}
-        for name in target_joints.keys():
-            start_val = start_obs[name]
-            end_val = target_joints[name]
-            # Linear Interpolation (Lerp)
-            action[name] = start_val + alpha * (end_val - start_val)
-            
-        robot.send_action(action)
-        precise_sleep(max(1.0 / FPS - (time.perf_counter() - t0), 0.0))
-        
-    print("[Reset] Home Position Reached.\n")
-
-
 def main():
     repo_id = "gilberto/so101_training_data"
-    local_dataset_path = Path(f"~/.cache/huggingface/lerobot/{repo_id}").expanduser()
     local_root = Path("outputs/datasets").resolve()
     
     # 1. HARDWARE CONFIGURATION
@@ -91,28 +57,23 @@ def main():
     teleop_config = PhoneConfig(phone_os=PhoneOS.IOS)
     
     # Cameras
-    cam_web_cfg = OpenCVCameraConfig(index_or_path=4, fps=FPS, width=480, height=640, rotation=-90)
+    cam_web_cfg = OpenCVCameraConfig(index_or_path=11, fps=FPS, width=480, height=640, rotation=-90)
     cam_rs_cfg = RealSenseCameraConfig(serial_number_or_name="146222253839", fps=FPS, width=640, height=480)
-    
     webcam = OpenCVCamera(cam_web_cfg)
     realsense = RealSenseCamera(cam_rs_cfg)
 
-    # 3. ROBOT & KINEMATICS SETUP
-    robot = SO100Follower(robot_config)
-    teleop_device = Phone(teleop_config)
-    
-    # Connect robot first to get motor names
+    # 2. ROBOT & KINEMATICS SETUP
     print("Connecting to robot...")
+    robot = SO100Follower(robot_config)
     robot.connect()
     motor_names = list(robot.bus.motors.keys())
-    
     kinematics_solver = RobotKinematics(
         urdf_path="/home/gilberto/projects/lerobot-playground/SO-ARM100/Simulation/SO101/so101_new_calib.urdf",
         target_frame_name="gripper_frame_link",
         joint_names=motor_names,
     )
 
-    # 4. PROCESSOR PIPELINE
+    # 3. PROCESSOR PIPELINE
     phone_to_robot_joints_processor = RobotProcessorPipeline[
         tuple[RobotAction, RobotObservation], RobotAction
     ](
@@ -141,10 +102,8 @@ def main():
         to_output=transition_to_robot_action,
     )
 
-    # 2. DATASET INITIALIZATION
-    dataset_dir = local_root / repo_id
-    
-    if dataset_dir.exists():
+    # 4. DATASET INITIALIZATION
+    if local_root.exists():
         print(f"Loading existing dataset from {repo_id}...")
         dataset = LeRobotDataset(repo_id, root=local_root)
     else:
@@ -164,17 +123,12 @@ def main():
 
     # 5. CONNECT REMAINING HARDWARE
     print("Connecting teleop and cameras...")
+    teleop_device = Phone(teleop_config)
     teleop_device.connect()
     webcam.connect()
     realsense.connect()
 
     is_recording = False
-    print("\n" + "="*40)
-    print(" SYSTEM ACTIVE ")
-    print(" [SPACE] : Toggle Record ON/OFF")
-    print(" [Q]     : Quit and Close")
-    print("="*40 + "\n")
-
     try:
         while True:
             t0 = time.perf_counter()
@@ -203,20 +157,16 @@ def main():
             # D. Handle Inputs
             key = cv2.waitKey(1) & 0xFF
             if key == ord(' '):
-                if not is_recording:
-                    # START RECORDING
+                if not is_recording: # start recording
                     is_recording = True
                     print(f"\nREC START: Episode {dataset.num_episodes}")
-                else:
-                    # STOP RECORDING & SAVE
+                else: # stop recording
                     is_recording = False
                     dataset.save_episode()
                     print(f"REC STOP: Episode {dataset.num_episodes - 1} saved.")
-                    move_to_home(robot, HOME_JOINTS, duration_sec=3.0)
                     
             elif key == ord('q'):
-                if is_recording:
-                    dataset.save_episode()
+                # terminate and dont use episode if recording
                 break
 
             # E. Recording Data
@@ -242,7 +192,7 @@ def main():
         robot.disconnect()
         webcam.disconnect()
         realsense.disconnect()
-        print(f"Dataset finalized at: {local_dataset_path}")
+        print(f"Dataset finalized at: {local_root}")
 
 if __name__ == "__main__":
     main()

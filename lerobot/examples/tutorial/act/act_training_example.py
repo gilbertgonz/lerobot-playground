@@ -24,12 +24,12 @@ def main():
     output_directory.mkdir(parents=True, exist_ok=True)
 
     # Select your device
-    device = torch.device("mps")  # or "cuda" or "cpu"
+    device = torch.device("cuda")  # or "cuda" or "cpu"
 
-    dataset_id = "lerobot/svla_so101_pickplace"
+    dataset_id = "gilberto/so101_training_data"
 
     # This specifies the inputs the model will be expecting and the outputs it will produce
-    dataset_metadata = LeRobotDatasetMetadata(dataset_id)
+    dataset_metadata = LeRobotDatasetMetadata(dataset_id, root="outputs/datasets")
     features = dataset_to_policy_features(dataset_metadata.features)
 
     output_features = {key: ft for key, ft in features.items() if ft.type is FeatureType.ACTION}
@@ -54,11 +54,11 @@ def main():
     }
 
     # Instantiate the dataset
-    dataset = LeRobotDataset(dataset_id, delta_timestamps=delta_timestamps)
+    dataset = LeRobotDataset(dataset_id, delta_timestamps=delta_timestamps, root="outputs/datasets")
 
     # Create the optimizer and dataloader for offline training
     optimizer = cfg.get_optimizer_preset().build(policy.parameters())
-    batch_size = 32
+    batch_size = 8
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=batch_size,
@@ -68,18 +68,27 @@ def main():
     )
 
     # Number of training steps and logging frequency
-    training_steps = 1
-    log_freq = 1
+    training_steps = 10000 
+    log_freq = 100    
+
+    scaler = torch.amp.GradScaler()
 
     # Run training loop
     step = 0
     done = False
     while not done:
         for batch in dataloader:
+            batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
             batch = preprocessor(batch)
-            loss, _ = policy.forward(batch)
-            loss.backward()
-            optimizer.step()
+
+            # Use autocast for the forward pass
+            with torch.amp.autocast("cuda"):
+                loss, _ = policy.forward(batch)
+
+            # Scale the loss and step the optimizer
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
             optimizer.zero_grad()
 
             if step % log_freq == 0:
@@ -95,9 +104,9 @@ def main():
     postprocessor.save_pretrained(output_directory)
 
     # Save all assets to the Hub
-    policy.push_to_hub("<user>/robot_learning_tutorial_act")
-    preprocessor.push_to_hub("<user>/robot_learning_tutorial_act")
-    postprocessor.push_to_hub("<user>/robot_learning_tutorial_act")
+    # policy.push_to_hub("<user>/robot_learning_tutorial_act")
+    # preprocessor.push_to_hub("<user>/robot_learning_tutorial_act")
+    # postprocessor.push_to_hub("<user>/robot_learning_tutorial_act")
 
 
 if __name__ == "__main__":
