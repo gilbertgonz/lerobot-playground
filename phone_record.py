@@ -144,14 +144,15 @@ def main():
             robot.send_action(joint_action)
 
             # C. Display
-            display = img_rs.copy()
+            h, w = img_rs.shape[:2]
+            img_web_res = cv2.resize(img_web, (int(img_web.shape[1] * (h / img_web.shape[0])), h))
+            display = np.hstack([img_rs, img_web_res])
             if is_recording:
                 cv2.putText(display, f"RECORDING EPISODE {dataset.num_episodes}", (60, 40), 
                             cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
             else:
-                cv2.putText(display, "STANDBY - READY", (20, 40), 
+                cv2.putText(display, "STANDBY", (20, 40), 
                             cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-            
             cv2.imshow("SO-101 Teleop Recorder", display)
 
             # D. Handle Inputs
@@ -164,9 +165,7 @@ def main():
                     is_recording = False
                     dataset.save_episode()
                     print(f"REC STOP: Episode {dataset.num_episodes - 1} saved.")
-                    
-            elif key == ord('q'):
-                # terminate and dont use episode if recording
+            elif key == ord('q'): # terminate and dont use episode if recording
                 break
 
             # E. Recording Data
@@ -180,8 +179,7 @@ def main():
                 }
                 dataset.add_frame(frame_data)
 
-            # Control Loop Timing
-            precise_sleep(max(1.0 / FPS - (time.perf_counter() - t0), 0.0))
+            precise_sleep(max(1.0 / FPS - (time.perf_counter() - t0), 0.0)) # Control Loop Timing
 
     except Exception as e:
         print(f"\nAn error occurred: {e}")
