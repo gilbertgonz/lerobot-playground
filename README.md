@@ -12,12 +12,14 @@ Adhoc playground for RL prototyping on the HuggingFace LeRobot stack
 lerobot-dataset-viz --repo-id gilberto/so101_training_data --root outputs/datasets --episode-index 1
 ```
 
-## how to train (locally)
-1. reduce batch size to 8
-2. use torch autocast
-3. run: 
+## how to train
 ```
-PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True python3 lerobot/examples/tutorial/act/act_training_example.py
+python3 lerobot/src/lerobot/scripts/lerobot_train.py      --dataset.repo_id=gilbertgonz/so101_training_data      --policy.type=act      --output_dir=outputs/robot_learning_tutorial/act/      --steps=10000      --batch_size=16      --policy.device=cuda --policy.repo_id=gilbertgonz/so101_training_data```
+```
+
+## how to upload model
+```
+huggingface-cli upload gilbertgonz/so101-act-models  outputs/robot_learning_tutorial/act/checkpoints/010000/pretrained_model .
 ```
 
 ## how to teleop via handtracking
