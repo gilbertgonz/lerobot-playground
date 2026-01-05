@@ -12,7 +12,6 @@ from datetime import datetime
 # Paths and Dataset Configuration
 OUTPUT_DIRECTORY = "outputs/train/diffusion_so101"
 DATASET_ID = "gilbertgonz/so101_training_data"
-LOCAL_ROOT = "outputs/datasets"
 
 # Image Resolution
 TARGET_HEIGHT = 224
@@ -47,7 +46,7 @@ def main():
     print(f"Using device: {device}")
 
     # Load metadata and force re-calculation of features for target resolution
-    dataset_metadata = LeRobotDatasetMetadata(DATASET_ID, root=LOCAL_ROOT)
+    dataset_metadata = LeRobotDatasetMetadata(DATASET_ID)
     features = dataset_to_policy_features(dataset_metadata.features)
 
     # 2. Force input features to target resolution to match our intended training resolution
@@ -85,7 +84,6 @@ def main():
     dataset = LeRobotDataset(
         DATASET_ID, 
         delta_timestamps=delta_timestamps, 
-        root=LOCAL_ROOT,
         image_transforms=resize_transform
     )
 
