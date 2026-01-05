@@ -22,7 +22,7 @@ from lerobot.utils.robot_utils import precise_sleep
 # --- CONFIGURATION ---
 FPS = 30
 MODEL_PATH = "gilbertgonz/so101-act-models"
-DATASET_REPO_ID = "gilberto/so101_training_data"  # Needed for normalization stats
+DATASET_REPO_ID = "gilbertgonz/so101_training_data"  # Needed for normalization stats
 DATASET_LOCAL_ROOT = Path("outputs/datasets").resolve()
 
 def main():
