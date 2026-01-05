@@ -8,9 +8,9 @@ Adhoc playground for RL prototyping on the HuggingFace LeRobot stack
 4. data stored in ./output
 
 ## how to view recorded episodes
-```
-lerobot-dataset-viz --repo-id gilberto/so101_training_data --root outputs/datasets --episode-index 1
-```
+https://huggingface.co/spaces/lerobot/visualize_dataset
+
+Enter repo_id: `gilbertgonz/so101_training_data`
 
 ## how to train
 ```
