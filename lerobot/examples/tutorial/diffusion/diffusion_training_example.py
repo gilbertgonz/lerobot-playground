@@ -21,7 +21,7 @@ TARGET_WIDTH = 224
 USE_SEPARATE_RGB_ENCODER_PER_CAMERA = True
 
 # DataLoader Configuration
-BATCH_SIZE = 8
+BATCH_SIZE = 32
 SHUFFLE = True
 PIN_MEMORY = True
 DROP_LAST = True
@@ -100,7 +100,7 @@ def main():
         DATASET_ID, 
         delta_timestamps=delta_timestamps, 
         image_transforms=resize_transform,
-        episodes=matching_episode_indices
+        episodes=matching_episode_indices if len(matching_episode_indices) > 0 else None
     )
 
     dataloader = torch.utils.data.DataLoader(
