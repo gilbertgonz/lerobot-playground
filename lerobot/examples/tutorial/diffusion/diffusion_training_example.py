@@ -21,16 +21,16 @@ TARGET_WIDTH = 224
 USE_SEPARATE_RGB_ENCODER_PER_CAMERA = True
 
 # DataLoader Configuration
-BATCH_SIZE = 32
+BATCH_SIZE = 8
 SHUFFLE = True
 PIN_MEMORY = True
 DROP_LAST = True
 NUM_WORKERS = 8
 
 # Training Configuration
-TRAINING_STEPS = 20000
+TRAINING_STEPS = 10000
 LOG_INTERVAL = 100
-CHECKPOINT_INTERVAL = 5000
+CHECKPOINT_INTERVAL = TRAINING_STEPS // 5
 
 # ============================================================================
 
@@ -48,6 +48,21 @@ def main():
     # Load metadata and force re-calculation of features for target resolution
     dataset_metadata = LeRobotDatasetMetadata(DATASET_ID)
     features = dataset_to_policy_features(dataset_metadata.features)
+
+    target_description = "Pick up the black object and place it inside the green cup."
+    matching_episode_indices = []
+    for i in range(dataset_metadata.total_episodes):
+        # Based on the metadata source code, episodes[i] contains a 'tasks' key
+        episode_data = dataset_metadata.episodes[i]
+        
+        # The 'tasks' key holds a list of task strings for that episode
+        episode_tasks = episode_data.get('tasks', [])
+        
+        # We check if our target string is in that list (case-insensitive)
+        if any(target_description.lower() == t.lower() for t in episode_tasks):
+            matching_episode_indices.append(i)
+
+    print(f"Found {len(matching_episode_indices)} episodes for: '{target_description}'")    
 
     # 2. Force input features to target resolution to match our intended training resolution
     output_features = {k: ft for k, ft in features.items() if ft.type is FeatureType.ACTION}
@@ -84,7 +99,8 @@ def main():
     dataset = LeRobotDataset(
         DATASET_ID, 
         delta_timestamps=delta_timestamps, 
-        image_transforms=resize_transform
+        image_transforms=resize_transform,
+        episodes=matching_episode_indices
     )
 
     dataloader = torch.utils.data.DataLoader(
