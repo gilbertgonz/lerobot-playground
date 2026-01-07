@@ -141,5 +141,18 @@ def main():
     postprocessor.save_pretrained(output_directory)
     print(f"Finished! Model saved to {output_directory}")
 
+    # Push to Hugging Face Hub
+    HUB_REPO_ID = f"gilbertgonz/so101-diffusion-models"
+    policy.push_to_hub(
+        HUB_REPO_ID,
+        save_directory=output_directory,
+        tags=["lerobot", "diffusion", "robotics"],
+        commit_message="Training specialized diffusion policy for black object task"
+    )
+    preprocessor.push_to_hub(HUB_REPO_ID)
+    postprocessor.push_to_hub(HUB_REPO_ID)
+
+    print("Success! Model is now live on the Hugging Face Hub.")
+
 if __name__ == "__main__":
     main()
