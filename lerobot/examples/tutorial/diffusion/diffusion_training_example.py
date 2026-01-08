@@ -12,6 +12,7 @@ from datetime import datetime
 # Paths and Dataset Configuration
 OUTPUT_DIRECTORY = "outputs/train/diffusion_so101"
 DATASET_ID = "gilbertgonz/so101_training_data"
+HUB_REPO_ID = f"gilbertgonz/so101-diffusion-models"
 
 # Image Resolution
 TARGET_HEIGHT = 224
@@ -30,7 +31,7 @@ NUM_WORKERS = 4
 # Training Configuration
 TRAINING_STEPS = 20000
 LOG_INTERVAL = 100
-CHECKPOINT_INTERVAL = TRAINING_STEPS // 5
+CHECKPOINT_INTERVAL = TRAINING_STEPS // 10
 
 # ============================================================================
 
@@ -135,6 +136,15 @@ def main():
             
             if step > 0 and step % CHECKPOINT_INTERVAL == 0:
                 policy.save_pretrained(output_directory / f"checkpoint_{step}")
+                policy.push_to_hub(
+                    HUB_REPO_ID,
+                    tags=["lerobot", "diffusion", "robotics"],
+                    commit_message=f"Checkpoint at step {step}"
+                )
+                preprocessor.push_to_hub(HUB_REPO_ID, save_directory="gilbertgonz/so101-diffusion-models")
+                postprocessor.push_to_hub(HUB_REPO_ID, save_directory="gilbertgonz/so101-diffusion-models")
+
+                print(f"Checkpoint pushed to Hub at step {step}")
                 
             step += 1
             if step >= TRAINING_STEPS: break
@@ -146,7 +156,6 @@ def main():
     print(f"Finished! Model saved to {output_directory}")
 
     # Push to Hugging Face Hub
-    HUB_REPO_ID = f"gilbertgonz/so101-diffusion-models"
     policy.push_to_hub(
         HUB_REPO_ID,
         save_directory=output_directory,
