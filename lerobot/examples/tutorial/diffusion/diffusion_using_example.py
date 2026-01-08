@@ -43,7 +43,7 @@ def main():
     print(f"Using device: {device}")
 
     # Load model + metadata
-    model = DiffusionPolicy.from_pretrained(MODEL_REPO_ID).to(device)
+    model = DiffusionPolicy.from_pretrained(MODEL_REPO_ID, revision="9868e6aa3f9217a961dc013f3d5637e7c91ee8fa").to(device)
     dataset_metadata = LeRobotDatasetMetadata(DATASET_ID)
 
     # model.config.n_obs_steps = 2

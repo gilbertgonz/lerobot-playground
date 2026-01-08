@@ -1,6 +1,7 @@
 from pathlib import Path
+import argparse
 import torch
-from torchvision.transforms import Resize, InterpolationMode
+from torchvision.transforms import Resize, InterpolationMode, Compose, ColorJitter, RandomRotation
 from lerobot.configs.types import FeatureType
 from lerobot.datasets.lerobot_dataset import LeRobotDataset, LeRobotDatasetMetadata
 from lerobot.datasets.utils import dataset_to_policy_features
@@ -16,22 +17,10 @@ HUB_REPO_ID = f"gilbertgonz/so101-diffusion-models"
 
 # Image Resolution
 TARGET_HEIGHT = 224
-TARGET_WIDTH = 224
+TARGET_WIDTH  = 224
 
 # Policy Configuration
 USE_SEPARATE_RGB_ENCODER_PER_CAMERA = True
-
-# DataLoader Configuration
-BATCH_SIZE = 16
-SHUFFLE = True
-PIN_MEMORY = True
-DROP_LAST = True
-NUM_WORKERS = 4
-
-# Training Configuration
-TRAINING_STEPS = 30000
-LOG_INTERVAL = 100
-CHECKPOINT_INTERVAL = TRAINING_STEPS // 10
 
 # ============================================================================
 
@@ -39,12 +28,35 @@ def make_delta_timestamps(delta_indices: list[int] | None, fps: int) -> list[flo
     if delta_indices is None: return [0]
     return [i / fps for i in delta_indices]
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Train Diffusion Policy")
+    
+    # DataLoader Configuration
+    parser.add_argument("--batch-size", type=int, default=16, help="Training batch size")
+    parser.add_argument("--num-workers", type=int, default=4, help="Number of dataloader workers")
+    
+    # Training Configuration
+    parser.add_argument("--steps", type=int, default=10000, help="Total number of training steps")
+    parser.add_argument("--log-interval", type=int, default=100, help="How often to log training progress")
+    parser.add_argument("--checkpoint-interval", type=int, default=None, help="How often to save checkpoints (default: steps // 10)")
+    
+    return parser.parse_args()
+
 def main():
+    # Parse command-line arguments
+    args = parse_args()
+
+    if args.checkpoint_interval is None:
+        args.checkpoint_interval = args.steps // 10
+    
     # 1. Setup paths and device
     output_directory = Path(OUTPUT_DIRECTORY)
     output_directory.mkdir(parents=True, exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
+    print(f"Training configuration: batch_size={args.batch_size}, steps={args.steps}, "
+          f"log_interval={args.log_interval}, checkpoint_interval={args.checkpoint_interval}, "
+          f"num_workers={args.num_workers}")
 
     # Load metadata and force re-calculation of features for target resolution
     dataset_metadata = LeRobotDatasetMetadata(DATASET_ID)
@@ -82,6 +94,7 @@ def main():
     cfg.n_obs_steps = 4
     cfg.horizon = 32
     cfg.n_action_steps = 16
+    # cfg.vision_backbone="resnet34" # defaults to resnet18
     
     policy = DiffusionPolicy(cfg)
     
@@ -98,18 +111,21 @@ def main():
     }
     delta_timestamps |= {k: make_delta_timestamps(cfg.observation_delta_indices, dataset_metadata.fps) for k in cfg.image_features}
 
-    # This transform fixes the "stack expects each tensor to be equal size" error
-    resize_transform = Resize((TARGET_HEIGHT, TARGET_WIDTH), interpolation=InterpolationMode.BILINEAR, antialias=True)
+    image_tforms = Compose([
+        Resize((TARGET_HEIGHT, TARGET_WIDTH), interpolation=InterpolationMode.BILINEAR, antialias=True),
+        # ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.02),
+        # RandomRotation(degrees=5),
+    ])
 
     dataset = LeRobotDataset(
         DATASET_ID, 
         delta_timestamps=delta_timestamps, 
-        image_transforms=resize_transform,
+        image_transforms=image_tforms,
         episodes=matching_episode_indices if len(matching_episode_indices) > 0 else None
     )
 
     dataloader = torch.utils.data.DataLoader(
-        dataset, batch_size=BATCH_SIZE, shuffle=SHUFFLE, pin_memory=PIN_MEMORY, drop_last=DROP_LAST, num_workers=NUM_WORKERS
+        dataset, batch_size=args.batch_size, shuffle=True, pin_memory=True, drop_last=True, num_workers=args.num_workers
     )
 
     optimizer = cfg.get_optimizer_preset().build(policy.parameters())
@@ -118,7 +134,7 @@ def main():
     step = 0
     print("Starting Training...")
     
-    while step < TRAINING_STEPS:
+    while step < args.steps:
         for batch in dataloader:
             # Move to GPU
             batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
@@ -131,10 +147,10 @@ def main():
             optimizer.step()
             optimizer.zero_grad()
 
-            if step % LOG_INTERVAL == 0:
+            if step % args.log_interval == 0:
                 print(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Step: {step} | Loss: {loss.item():.4f}")
             
-            if step > 0 and step % CHECKPOINT_INTERVAL == 0:
+            if step > 0 and step % args.checkpoint_interval == 0:
                 policy.save_pretrained(output_directory / f"checkpoint_{step}")
                 policy.push_to_hub(
                     HUB_REPO_ID,
@@ -146,7 +162,7 @@ def main():
                 print(f"Checkpoint pushed to Hub at step {step}")
                 
             step += 1
-            if step >= TRAINING_STEPS: break
+            if step >= args.steps: break
 
     # 6. Final Save
     policy.save_pretrained(output_directory)
