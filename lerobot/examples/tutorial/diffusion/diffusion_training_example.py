@@ -138,7 +138,6 @@ def main():
                 policy.save_pretrained(output_directory / f"checkpoint_{step}")
                 policy.push_to_hub(
                     HUB_REPO_ID,
-                    tags=["lerobot", "diffusion", "robotics"],
                     commit_message=f"Checkpoint at step {step}"
                 )
                 preprocessor.push_to_hub(HUB_REPO_ID, save_directory="gilbertgonz/so101-diffusion-models")
@@ -158,8 +157,6 @@ def main():
     # Push to Hugging Face Hub
     policy.push_to_hub(
         HUB_REPO_ID,
-        save_directory=output_directory,
-        tags=["lerobot", "diffusion", "robotics"],
         commit_message="Training specialized diffusion policy for black object task"
     )
     preprocessor.push_to_hub(HUB_REPO_ID)
