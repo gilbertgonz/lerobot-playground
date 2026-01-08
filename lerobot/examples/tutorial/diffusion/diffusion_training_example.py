@@ -21,14 +21,14 @@ TARGET_WIDTH = 224
 USE_SEPARATE_RGB_ENCODER_PER_CAMERA = True
 
 # DataLoader Configuration
-BATCH_SIZE = 32
+BATCH_SIZE = 16
 SHUFFLE = True
 PIN_MEMORY = True
 DROP_LAST = True
-NUM_WORKERS = 8
+NUM_WORKERS = 4
 
 # Training Configuration
-TRAINING_STEPS = 10000
+TRAINING_STEPS = 20000
 LOG_INTERVAL = 100
 CHECKPOINT_INTERVAL = TRAINING_STEPS // 5
 
@@ -78,6 +78,10 @@ def main():
         output_features=output_features,
         use_separate_rgb_encoder_per_camera=USE_SEPARATE_RGB_ENCODER_PER_CAMERA
     )
+    cfg.n_obs_steps = 4
+    cfg.horizon = 32
+    cfg.n_action_steps = 16
+    
     policy = DiffusionPolicy(cfg)
     
     # Create processors using updated metadata
