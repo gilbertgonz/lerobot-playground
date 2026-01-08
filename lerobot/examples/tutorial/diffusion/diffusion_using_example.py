@@ -1,7 +1,7 @@
-import time
 import torch
-import cv2
 import numpy as np
+import cv2
+import time
 import traceback
 
 from torchvision.transforms import Resize, InterpolationMode
@@ -16,30 +16,21 @@ from lerobot.policies.diffusion.modeling_diffusion import DiffusionPolicy
 from lerobot.policies.factory import make_pre_post_processors
 from lerobot.policies.utils import build_inference_frame, make_robot_action
 
-from lerobot.robots.so100_follower.config_so100_follower import SO100FollowerConfig
-from lerobot.robots.so100_follower.so100_follower import SO100Follower
+from lerobot.robots.so101_follower.config_so101_follower import SO101FollowerConfig
+from lerobot.robots.so101_follower.so101_follower import SO101Follower
 from lerobot.utils.robot_utils import precise_sleep
 
 
 # CONFIG
 FPS = 30
 MAX_EPISODES = 5
-MAX_STEPS_PER_EPISODE = 200
+MAX_STEPS_PER_EPISODE = 1000
 
 MODEL_REPO_ID = "gilbertgonz/so101-diffusion-models"
 DATASET_ID = "gilbertgonz/so101_training_data"
 
 TARGET_HEIGHT = 224
 TARGET_WIDTH = 224
-
-TASK_NAME_TO_ID = {
-    "pick_and_place": 0,
-    "push": 1,
-    "touch": 2,
-}
-
-CURRENT_TASK = "pick_and_place"
-TASK_ID = TASK_NAME_TO_ID[CURRENT_TASK]
 
 resizer = Resize(
     (TARGET_HEIGHT, TARGET_WIDTH),
@@ -52,31 +43,32 @@ def main():
     print(f"Using device: {device}")
 
     # Load model + metadata
-    print("Loading model...")
     model = DiffusionPolicy.from_pretrained(MODEL_REPO_ID).to(device)
-    model.eval()
-
-    print("Loading dataset metadata...")
     dataset_metadata = LeRobotDatasetMetadata(DATASET_ID)
 
+    # model.config.n_obs_steps = 2
+    # model.config.horizon = 40
+    # model.config.n_action_steps = 30
+
+    # Pre/Post processors
     preprocess, postprocess = make_pre_post_processors(
         model.config,
-        MODEL_REPO_ID,
         dataset_stats=dataset_metadata.stats,
     )
 
-    # Robot
-    robot_config = SO100FollowerConfig(
+    # Robot config
+    robot_cfg = SO101FollowerConfig(
         port="/dev/ttyACM0",
         id="gil_follower_arm",
         use_degrees=True,
+        # max_relative_target=10.0,
     )
-    robot = SO100Follower(robot_config)
+    robot = SO101Follower(robot_cfg)
     robot.connect()
 
     motor_names = list(robot.bus.motors.keys())
 
-    # Cameras
+    # Camera configs
     cam_web_cfg = OpenCVCameraConfig(
         index_or_path=11,
         fps=FPS,
@@ -98,27 +90,18 @@ def main():
     webcam.connect()
     realsense.connect()
 
-    # Action buffer
-    action_buffer = []
     try:
-        print("\nStarting inference...")
-
         for episode in range(MAX_EPISODES):
             print(f"\nEpisode {episode + 1}")
-
-            if hasattr(model, "reset"):
-                model.reset()
-
-            action_buffer.clear()
+            model.reset()
 
             for step in range(MAX_STEPS_PER_EPISODE):
                 t0 = time.perf_counter()
-
-                # Observations
                 robot_obs = robot.get_observation()
                 img_web = webcam.read()
                 img_rs = realsense.read()
 
+                # Build raw observations
                 raw_obs = {
                     "webcam": img_web,
                     "realsense": img_rs,
@@ -137,58 +120,28 @@ def main():
                     device=device,
                 )
 
+                # Image resizing
                 obs_frame["observation.images.webcam"] = resizer(
                     obs_frame["observation.images.webcam"]
                 )
                 obs_frame["observation.images.realsense"] = resizer(
                     obs_frame["observation.images.realsense"]
                 )
+                
+                # Inference
+                with torch.no_grad():
+                    obs = preprocess(obs_frame)
+                    action = model.select_action(obs)
+                    action = postprocess(action)
+                action_dict = make_robot_action(action, dataset_metadata.features)
+                robot.send_action(action_dict)
 
-                # Task token conditioning
-                obs_frame["observation.task_id"] = torch.tensor(
-                    [[TASK_ID]],
-                    device=device,
-                    dtype=torch.long,
-                )
-
-                # Diffusion inference (ONLY when buffer empty)
-                if len(action_buffer) == 0:
-                    with torch.no_grad():
-                        obs_normalized = preprocess(obs_frame)
-                        action_output = model.select_action(obs_normalized)
-                        action_unnormalized = postprocess(action_output)
-
-                    action_sequence = make_robot_action(
-                        action_unnormalized,
-                        dataset_metadata.features,
-                    )
-
-                    if isinstance(action_sequence, dict):
-                        action_sequence = [action_sequence]
-
-                    action_buffer.extend(action_sequence)
-
-                # Execute buffered action
-                final_action = action_buffer.pop(0)
-                robot.send_action(final_action)
-
-                # Visualization
+                # Viz
                 h = img_rs.shape[0]
-                img_web_res = cv2.resize(
-                    img_web,
-                    (int(img_web.shape[1] * (h / img_web.shape[0])), h),
-                )
-
-                display = np.hstack([img_rs, img_web_res])
-                cv2.putText(
-                    display,
-                    f"Task: {CURRENT_TASK} | Step {step + 1}",
-                    (20, 40),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.7,
-                    (0, 255, 0),
-                    2,
-                )
+                img_web_resized = cv2.resize(img_web, (int(img_web.shape[1] * (h / img_web.shape[0])), h))
+                display = np.hstack([img_rs, img_web_resized])
+                cv2.putText(display, f"Episode {episode + 1} | Step {step + 1}", (20, 40),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
                 cv2.imshow("Diffusion Policy Inference", display)
 
                 if cv2.waitKey(1) & 0xFF == ord("q"):

@@ -9,8 +9,8 @@ import traceback
 from lerobot.policies.act.modeling_act import ACTPolicy
 from lerobot.policies.factory import make_pre_post_processors
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
-from lerobot.robots.so100_follower.config_so100_follower import SO100FollowerConfig
-from lerobot.robots.so100_follower.so100_follower import SO100Follower
+from lerobot.robots.so101_follower.config_so101_follower import SO101FollowerConfig
+from lerobot.robots.so101_follower.so101_follower import SO101Follower
 
 # Camera & Utilities
 from lerobot.cameras.opencv.camera_opencv import OpenCVCamera
@@ -31,8 +31,8 @@ def main():
 
     # 1. HARDWARE SETUP
     print("Connecting to SO-101 and Cameras...")
-    robot_config = SO100FollowerConfig(port="/dev/ttyACM0", id="gil_follower_arm", use_degrees=True)
-    robot = SO100Follower(robot_config)
+    robot_config = SO101FollowerConfig(port="/dev/ttyACM0", id="gil_follower_arm", use_degrees=True)
+    robot = SO101Follower(robot_config)
     robot.connect()
     motor_names = list(robot.bus.motors.keys())
 
