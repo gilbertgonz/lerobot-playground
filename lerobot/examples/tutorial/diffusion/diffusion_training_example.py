@@ -29,7 +29,7 @@ DROP_LAST = True
 NUM_WORKERS = 4
 
 # Training Configuration
-TRAINING_STEPS = 20000
+TRAINING_STEPS = 30000
 LOG_INTERVAL = 100
 CHECKPOINT_INTERVAL = TRAINING_STEPS // 10
 
@@ -140,8 +140,8 @@ def main():
                     HUB_REPO_ID,
                     commit_message=f"Checkpoint at step {step}"
                 )
-                preprocessor.push_to_hub(HUB_REPO_ID, save_directory="gilbertgonz/so101-diffusion-models")
-                postprocessor.push_to_hub(HUB_REPO_ID, save_directory="gilbertgonz/so101-diffusion-models")
+                preprocessor.push_to_hub(HUB_REPO_ID)
+                postprocessor.push_to_hub(HUB_REPO_ID)
 
                 print(f"Checkpoint pushed to Hub at step {step}")
                 
