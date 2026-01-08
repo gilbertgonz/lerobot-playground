@@ -61,12 +61,18 @@ def main():
         port="/dev/ttyACM0",
         id="gil_follower_arm",
         use_degrees=True,
-        # max_relative_target=10.0,
     )
     robot = SO101Follower(robot_cfg)
     robot.connect()
 
     motor_names = list(robot.bus.motors.keys())
+    
+    # Set maximum velocity to slow down robot movements
+    max_velocity = 150  # Start with 150 and adjust as needed
+    # goal_time_ms = 500 # 500ms to reach target
+    for motor_name in motor_names:
+        robot.bus.write("Goal_Velocity", motor_name, max_velocity)
+        # robot.bus.write("Goal_Time", motor_name, goal_time_ms)
 
     # Camera configs
     cam_web_cfg = OpenCVCameraConfig(

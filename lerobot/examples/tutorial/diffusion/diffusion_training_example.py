@@ -91,7 +91,7 @@ def main():
         output_features=output_features,
         use_separate_rgb_encoder_per_camera=USE_SEPARATE_RGB_ENCODER_PER_CAMERA
     )
-    cfg.n_obs_steps = 3
+    cfg.n_obs_steps = 4
     cfg.horizon = 32
     cfg.n_action_steps = 16
     # cfg.vision_backbone="resnet34" # defaults to resnet18
