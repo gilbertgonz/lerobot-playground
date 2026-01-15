@@ -72,6 +72,12 @@ def main():
         target_frame_name="gripper_frame_link",
         joint_names=motor_names,
     )
+    
+    max_velocity = 1000
+    for motor_name in motor_names:
+        if 'gripper' in motor_name:
+            max_velocity = 1500
+        robot.bus.write("Goal_Velocity", motor_name, max_velocity)
 
     # 3. PROCESSOR PIPELINE
     phone_to_robot_joints_processor = RobotProcessorPipeline[

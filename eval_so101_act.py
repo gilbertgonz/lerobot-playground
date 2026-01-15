@@ -23,7 +23,7 @@ from lerobot.utils.robot_utils import precise_sleep
 FPS = 30
 MODEL_PATH = "gilbertgonz/so101-act-models"
 DATASET_REPO_ID = "gilbertgonz/so101_training_data"  # Needed for normalization stats
-DATASET_LOCAL_ROOT = Path("outputs/datasets").resolve()
+DATASET_LOCAL_ROOT = Path("outputs/train/act/final_models").resolve()
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -35,6 +35,12 @@ def main():
     robot = SO101Follower(robot_config)
     robot.connect()
     motor_names = list(robot.bus.motors.keys())
+
+    max_velocity = 900
+    for motor_name in motor_names:
+        if 'gripper' in motor_name:
+            max_velocity = 1500
+        robot.bus.write("Goal_Velocity", motor_name, max_velocity)
 
     cam_web_cfg = OpenCVCameraConfig(index_or_path=11, fps=FPS, width=480, height=640, rotation=-90)
     cam_rs_cfg = RealSenseCameraConfig(serial_number_or_name="146222253839", fps=FPS, width=640, height=480)

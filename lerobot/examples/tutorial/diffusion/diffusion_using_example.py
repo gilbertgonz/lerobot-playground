@@ -43,7 +43,7 @@ def main():
     print(f"Using device: {device}")
 
     # Load model + metadata
-    model = DiffusionPolicy.from_pretrained(MODEL_REPO_ID, revision="9868e6aa3f9217a961dc013f3d5637e7c91ee8fa").to(device)
+    model = DiffusionPolicy.from_pretrained(MODEL_REPO_ID, revision="e0b11a1165ccb3bb09d41433ac1c5ced20647b3e").to(device)
     dataset_metadata = LeRobotDatasetMetadata(DATASET_ID)
 
     # model.config.n_obs_steps = 2
@@ -68,11 +68,11 @@ def main():
     motor_names = list(robot.bus.motors.keys())
     
     # Set maximum velocity to slow down robot movements
-    max_velocity = 150  # Start with 150 and adjust as needed
-    # goal_time_ms = 500 # 500ms to reach target
+    max_velocity = 1000
     for motor_name in motor_names:
+        if 'gripper' in motor_name:
+            max_velocity = 1500
         robot.bus.write("Goal_Velocity", motor_name, max_velocity)
-        # robot.bus.write("Goal_Time", motor_name, goal_time_ms)
 
     # Camera configs
     cam_web_cfg = OpenCVCameraConfig(
