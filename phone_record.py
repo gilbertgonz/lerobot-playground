@@ -11,14 +11,14 @@ from lerobot.processor.converters import (
     robot_action_observation_to_transition,
     transition_to_robot_action,
 )
-from lerobot.robots.so100_follower.config_so100_follower import SO100FollowerConfig
+from lerobot.robots.so101_follower.config_so101_follower import SO101FollowerConfig
 from lerobot.robots.so100_follower.robot_kinematic_processor import (
     EEBoundsAndSafety,
     EEReferenceAndDelta,
     GripperVelocityToJoint,
     InverseKinematicsEEToJoints,
 )
-from lerobot.robots.so100_follower.so100_follower import SO100Follower
+from lerobot.robots.so101_follower.so101_follower import SO101Follower
 from lerobot.teleoperators.phone.config_phone import PhoneConfig, PhoneOS
 from lerobot.teleoperators.phone.phone_processor import MapPhoneActionToRobotAction
 from lerobot.teleoperators.phone.teleop_phone import Phone
@@ -49,7 +49,7 @@ def main():
     local_root = Path("outputs/datasets").resolve()
     
     # 1. HARDWARE CONFIGURATION
-    robot_config = SO100FollowerConfig(
+    robot_config = SO101FollowerConfig(
         port="/dev/ttyACM0", 
         id="gil_follower_arm", 
         use_degrees=True
@@ -57,14 +57,14 @@ def main():
     teleop_config = PhoneConfig(phone_os=PhoneOS.IOS)
     
     # Cameras
-    cam_web_cfg = OpenCVCameraConfig(index_or_path=11, fps=FPS, width=480, height=640, rotation=-90)
-    cam_rs_cfg = RealSenseCameraConfig(serial_number_or_name="146222253839", fps=FPS, width=640, height=480)
+    cam_web_cfg = OpenCVCameraConfig(index_or_path=4, fps=FPS, width=640, height=480, color_mode="bgr")
+    cam_rs_cfg = RealSenseCameraConfig(serial_number_or_name="146222253839", fps=FPS, width=640, height=480, color_mode="bgr")
     webcam = OpenCVCamera(cam_web_cfg)
     realsense = RealSenseCamera(cam_rs_cfg)
 
     # 2. ROBOT & KINEMATICS SETUP
     print("Connecting to robot...")
-    robot = SO100Follower(robot_config)
+    robot = SO101Follower(robot_config)
     robot.connect()
     motor_names = list(robot.bus.motors.keys())
     kinematics_solver = RobotKinematics(
@@ -120,7 +120,7 @@ def main():
             fps=FPS,
             robot_type="so101",
             features={
-                "observation.images.webcam": {"dtype": "video", "shape": [3, 640, 480], "names": ["channels", "height", "width"]},
+                "observation.images.webcam": {"dtype": "video", "shape": [3, 480, 640], "names": ["channels", "height", "width"]},
                 "observation.images.realsense": {"dtype": "video", "shape": [3, 480, 640], "names": ["channels", "height", "width"]},
                 "observation.state": {"dtype": "float32", "shape": (6,), "names": motor_names},
                 "action": {"dtype": "float32", "shape": (6,), "names": motor_names},
