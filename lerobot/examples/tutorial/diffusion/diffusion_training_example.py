@@ -12,8 +12,8 @@ from datetime import datetime
 
 # Paths and Dataset Configuration
 OUTPUT_DIRECTORY = "outputs/train/diffusion_so101"
-DATASET_ID = "gilbertgonz/so101_training_data"
-HUB_REPO_ID = f"gilbertgonz/so101-diffusion-models"
+DATASET_ID = "gilbertgonz/so101_training_data_wrist_only_v2"
+HUB_REPO_ID = f"gilbertgonz/so101-diffusion-models-wrist-only-key-pick-up"
 
 # Image Resolution
 TARGET_HEIGHT = 224

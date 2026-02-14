@@ -38,13 +38,13 @@ from lerobot.datasets.lerobot_dataset import LeRobotDataset
 
 # --- GLOBAL CONFIGURATION ---
 FPS = 30
-TASK_DESCRIPTION = "Pick up the black object and place it inside the green cup."
+TASK_DESCRIPTION = "Pick up the keys"
 
 USE_WEBCAM = True
 USE_REALSENSE = False
 
 def main():
-    repo_id = "gilberto/so101_training_data_v2"
+    repo_id = "gilbertgonz/so101_training_data_wrist_only_v2"
     local_root = Path("outputs/datasets").resolve()
     urdf_path = "/home/gilberto/projects/lerobot-playground/SO-ARM100/Simulation/SO101/so101_new_calib.urdf"
 
@@ -62,13 +62,13 @@ def main():
 
     if USE_WEBCAM:
         cam_web_cfg = OpenCVCameraConfig(
-            index_or_path=4, fps=FPS, width=640, height=480, color_mode="bgr"
+            index_or_path=0, fps=FPS, width=640, height=480, color_mode="rgb"
         )
         webcam = OpenCVCamera(cam_web_cfg)
 
     if USE_REALSENSE:
         cam_rs_cfg = RealSenseCameraConfig(
-            serial_number_or_name="146222253839", fps=FPS, width=640, height=480, color_mode="bgr"
+            serial_number_or_name="146222253839", fps=FPS, width=640, height=480, color_mode="rgb"
         )
         realsense = RealSenseCamera(cam_rs_cfg)
 
@@ -138,17 +138,20 @@ def main():
             "dtype": "video", "shape": [3, 480, 640], "names": ["channels", "height", "width"]
         }
 
-    if local_root.exists() and (local_root / repo_id).exists():
-        print(f"Loading existing dataset from {repo_id}...")
-        dataset = LeRobotDataset(repo_id, root=local_root)
+    if local_root.exists():
+        dataset_path = local_root / repo_id
+        if (dataset_path / "meta/info.json").exists():
+            print(f"Found existing dataset at {dataset_path}. Appending...")
+            dataset = LeRobotDataset(str(dataset_path)) 
     else:
-        print(f"Creating new dataset at {repo_id}...")
+        print(f"Creating new dataset at {dataset_path}...")
         dataset = LeRobotDataset.create(
             repo_id=repo_id,
             root=local_root,
             fps=FPS,
             robot_type="so101",
-            features=features
+            features=features,
+            use_videos=True
         )
 
     # 6. CONNECT HARDWARE
@@ -193,16 +196,14 @@ def main():
                 display_images.append(img_rs)
             
             if USE_WEBCAM and img_web is not None:
-                # Resize webcam to match RealSense height if both are present
                 if USE_REALSENSE and img_rs is not None:
-                    h = img_rs.shape[0]
-                    img_web_res = cv2.resize(img_web, (int(img_web.shape[1] * (h / img_web.shape[0])), h))
-                    display_images.append(img_web_res)
+                    display_images.append(img_web)
                 else:
                     display_images.append(img_web)
 
             # Stack whatever images we have horizontally
             display = np.hstack(display_images)
+            display = cv2.cvtColor(display, cv2.COLOR_RGB2BGR) # convert to bgr for cv2 display
 
             if is_recording:
                 cv2.putText(display, f"RECORDING EPISODE {dataset.num_episodes}", (60, 40), 
@@ -223,6 +224,9 @@ def main():
                     dataset.save_episode()
                     print(f"REC STOP: Episode {dataset.num_episodes - 1} saved.")
             elif key == ord('q'): # terminate and dont use episode if recording
+                if is_recording:
+                    is_recording = False
+                    dataset.clear_episode_buffer()
                 break
 
             # E. Recording Data

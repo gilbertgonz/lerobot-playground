@@ -1,48 +1,48 @@
 import logging
+import shutil # Added for moving the folder back
 from pathlib import Path
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
-# Assuming your provided file is saved as 'dataset_utils.py' in the same folder
-from lerobot.datasets.dataset_tools import (
-    add_features,
-    delete_episodes,
-    merge_datasets,
-    modify_features,
-    remove_feature,
-    split_dataset,
-)
+from lerobot.datasets.dataset_tools import delete_episodes
+
 def cleanup_last_episode():
-    # 1. Setup Paths
-    repo_id = "gilberto/so101_training_data"
+    repo_id = "gilbertgonz/so101_training_data_wrist_only_v2"
     local_root = Path("outputs/datasets").resolve()
+    current_path = local_root / repo_id
+    temp_path = local_root / f"{repo_id}_tmp" # Temporary path
     
-    print(f"Loading dataset from {local_root / repo_id}...")
-    
-    # 2. Load the current dataset
-    dataset = LeRobotDataset(repo_id, root=local_root)
+    print(f"Loading dataset from {current_path}...")
+    dataset = LeRobotDataset(str(current_path))
     
     if dataset.meta.total_episodes == 0:
         print("Dataset is already empty.")
         return
 
-    # 3. Identify the last episode index
-    last_episode_idx = 6 #dataset.meta.total_episodes - 1
+    last_episode_idx = dataset.meta.total_episodes - 1
     print(f"Attempting to delete Episode Index: {last_episode_idx}")
 
-    # 4. Use the official utility to delete and re-index
-    # We set repo_id to the same name and output_dir to the same path 
-    # to "overwrite" the current dataset with the cleaned version.
     try:
+        # Create the new dataset in a temporary location
         new_dataset = delete_episodes(
             dataset=dataset,
             episode_indices=[last_episode_idx],
             repo_id=repo_id,
-            output_dir=local_root / repo_id
+            output_dir=temp_path # Write to tmp
         )
-        print(f"Successfully deleted episode. New total: {new_dataset.meta.total_episodes}")
+        
+        print(f"Successfully created cleaned version. Swapping folders...")
+        
+        # 5. Swap the folders: Delete the old one and move the new one in
+        shutil.rmtree(current_path)
+        temp_path.rename(current_path)
+        
+        print(f"Cleanup complete. New total: {new_dataset.meta.total_episodes}")
+        
     except Exception as e:
         print(f"Error during deletion: {e}")
+        if temp_path.exists():
+            print(f"Cleaning up failed temp directory: {temp_path}")
+            shutil.rmtree(temp_path)
 
 if __name__ == "__main__":
-    # Set logging to INFO to see the progress bars from your utils file
     logging.basicConfig(level=logging.INFO)
     cleanup_last_episode()
