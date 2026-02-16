@@ -119,7 +119,7 @@ def replay(cfg: ReplayConfig):
 
         processed_action = robot_action_processor((action, robot_obs))
 
-        _ = robot.send_action(processed_action)
+        robot.bus.sync_write("Goal_Position", processed_action)
 
         dt_s = time.perf_counter() - start_episode_t
         precise_sleep(1 / dataset.fps - dt_s)

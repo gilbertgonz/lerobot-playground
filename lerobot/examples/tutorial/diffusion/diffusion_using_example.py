@@ -26,8 +26,8 @@ FPS = 30
 MAX_EPISODES = 5
 MAX_STEPS_PER_EPISODE = 1000
 
-MODEL_REPO_ID = "gilbertgonz/so101-diffusion-models"
-DATASET_ID = "gilbertgonz/so101_training_data"
+MODEL_REPO_ID = "gilbertgonz/so101-diffusion-models-wrist-only-key-pick-up"
+DATASET_ID = "gilbertgonz/so101_training_data_wrist_only_v2"
 
 TARGET_HEIGHT = 224
 TARGET_WIDTH = 224
@@ -43,8 +43,9 @@ def main():
     print(f"Using device: {device}")
 
     # Load model + metadata
-    model = DiffusionPolicy.from_pretrained(MODEL_REPO_ID, revision="e0b11a1165ccb3bb09d41433ac1c5ced20647b3e").to(device)
+    model = DiffusionPolicy.from_pretrained(MODEL_REPO_ID, revision="db594719d5c1d60ce2f21b4a8d92bf58552742dd").to(device)
     dataset_metadata = LeRobotDatasetMetadata(DATASET_ID)
+    print("Loaded model and dataset metadata.")
 
     # model.config.n_obs_steps = 2
     # model.config.horizon = 40
@@ -55,6 +56,7 @@ def main():
         model.config,
         dataset_stats=dataset_metadata.stats,
     )
+    print("Created preprocess and postprocess functions.")
 
     # Robot config
     robot_cfg = SO101FollowerConfig(
@@ -64,37 +66,40 @@ def main():
     )
     robot = SO101Follower(robot_cfg)
     robot.connect()
+    print("Connected to robot.")
 
     motor_names = list(robot.bus.motors.keys())
     
-    # Set maximum velocity to slow down robot movements
+    # Set max velocities
     max_velocity = 1000
     for motor_name in motor_names:
         if 'gripper' in motor_name:
-            max_velocity = 1500
-        robot.bus.write("Goal_Velocity", motor_name, max_velocity)
+            robot.bus.write("Goal_Velocity", motor_name, 1500)
+        else:
+            robot.bus.write("Goal_Velocity", motor_name, max_velocity)
+    print("Set motor velocities.")
 
     # Camera configs
     cam_web_cfg = OpenCVCameraConfig(
-        index_or_path=11,
-        fps=FPS,
-        width=480,
-        height=640,
-        rotation=-90,
+        index_or_path=0, fps=FPS, width=640, height=480, color_mode="rgb"
     )
+    print("Webcam config created.")
 
-    cam_rs_cfg = RealSenseCameraConfig(
-        serial_number_or_name="146222253839",
-        fps=FPS,
-        width=640,
-        height=480,
-    )
+    # cam_rs_cfg = RealSenseCameraConfig(
+    #     serial_number_or_name="146222253839",
+    #     fps=FPS,
+    #     width=640,
+    #     height=480,
+    # )
 
     webcam = OpenCVCamera(cam_web_cfg)
-    realsense = RealSenseCamera(cam_rs_cfg)
+    print("Webcam instance created.")
+    # realsense = RealSenseCamera(cam_rs_cfg)
 
     webcam.connect()
-    realsense.connect()
+    # realsense.connect()
+
+    print("Starting inference loop")
 
     try:
         for episode in range(MAX_EPISODES):
@@ -105,16 +110,16 @@ def main():
                 t0 = time.perf_counter()
                 robot_obs = robot.get_observation()
                 img_web = webcam.read()
-                img_rs = realsense.read()
+                # img_rs = realsense.read()
 
                 # Build raw observations
                 raw_obs = {
                     "webcam": img_web,
-                    "realsense": img_rs,
+                    # "realsense": img_rs,
                 }
 
                 for name in motor_names:
-                    raw_obs[f"{name}.pos"] = np.array(
+                    raw_obs[f"{name}"] = np.array(
                         robot_obs[f"{name}.pos"],
                         dtype=np.float32,
                     )
@@ -130,22 +135,27 @@ def main():
                 obs_frame["observation.images.webcam"] = resizer(
                     obs_frame["observation.images.webcam"]
                 )
-                obs_frame["observation.images.realsense"] = resizer(
-                    obs_frame["observation.images.realsense"]
-                )
+                # obs_frame["observation.images.realsense"] = resizer(
+                #     obs_frame["observation.images.realsense"]
+                # )
                 
-                # Inference
+                # ... Inference ...
                 with torch.no_grad():
                     obs = preprocess(obs_frame)
                     action = model.select_action(obs)
                     action = postprocess(action)
-                action_dict = make_robot_action(action, dataset_metadata.features)
-                robot.send_action(action_dict)
+
+                raw_action_dict = make_robot_action(action, dataset_metadata.features)
+                action_dict = {}
+                for name in robot.bus.motors.keys():
+                    if name in raw_action_dict:
+                        action_dict[name] = float(raw_action_dict[name])
+                robot.bus.sync_write("Goal_Position", action_dict)
 
                 # Viz
-                h = img_rs.shape[0]
-                img_web_resized = cv2.resize(img_web, (int(img_web.shape[1] * (h / img_web.shape[0])), h))
-                display = np.hstack([img_rs, img_web_resized])
+                # h = img_rs.shape[0]
+                # img_web_resized = cv2.resize(img_web, (int(img_web.shape[1] * (h / img_web.shape[0])), h))
+                display = cv2.cvtColor(img_web, cv2.COLOR_BGR2RGB) # np.hstack([img_rs, img_web_resized])
                 cv2.putText(display, f"Episode {episode + 1} | Step {step + 1}", (20, 40),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
                 cv2.imshow("Diffusion Policy Inference", display)
@@ -167,7 +177,7 @@ def main():
         cv2.destroyAllWindows()
         robot.disconnect()
         webcam.disconnect()
-        realsense.disconnect()
+        # realsense.disconnect()
         print("Done.")
 
 
